@@ -1,0 +1,236 @@
+---(work in progress on Petroleum system rewriting theory by
+         Ingrid Chieh Yu <ingridcy@ifi.uio.no> and Crystal Din <crystald@ifi.uio.no>.
+         Together with geologists Irina Pene <irina.pene@geo.uio.no> and Michael Heeremans <michael.heeremans@geo.uio.no> )
+         
+in geoFunc .
+
+mod GEO-PETROLEUM is
+
+  protecting GEO-FUNCS .
+  protecting QID .
+  protecting NAT .
+  protecting LIST{Qid}  .
+
+  subsorts Class Object Msg < Configuration .
+  subsort Qid < Cid .
+  subsort Nat < Oid .
+  
+  op None : -> Cid [ctor] .
+ 
+  sort Class .
+  sorts RockClass HydrocarbonClass FaultClass PathwayClass .
+  subsorts RockClass HydrocarbonClass FaultClass PathwayClass < Class .
+     
+  
+ 
+  --- Geo Rocks definition
+
+  sort RType .
+  op sandstone : -> RType  .
+  op limestone : -> RType  .
+  op shale : -> RType .
+  op null : -> Oid [ctor] .
+  --- Depositional Environment
+  sort DepEnv .
+  op marine : -> DepEnv .
+
+  --- Role definition .
+  sort Role .
+  op sourceRock : -> Role . 
+  op reservoirRock : -> Role .
+  op capRock : -> Role .
+  op sealRock : -> Role .
+  op noRole : -> Role [ctor]  .
+
+     
+  --- Fault Def
+  sort FType .
+  sort Orientation .
+  subsort Orientation < Oid .
+  
+  --- Fault types related to external stress
+  op normalfault : -> FType [ctor] .
+  op reversefault : -> FType [ctor]  .
+  op strikeSlipfault: -> FType [ctor]  .
+  op thrustfault: -> FType [ctor] .
+  op unknown : -> FType [ctor]  .
+  
+  ---orientation between reservoirRock and Fault
+  op dippingAway : -> Orientation .
+  op dippingTowards : -> Orientation .
+  op horizontal : -> Orientation .
+
+  --- Fault filling 
+  op sealing : -> FType .
+  op non-sealing : -> FType .
+  
+
+  op _,_ : Oid Orientation -> ObjPair [ctor]  . 
+
+  --- Pathway types
+  sort Ptype .
+     
+  op fault : Oid Oid Oid -> Ptype .
+  op incontact : Oid Oid -> Ptype  .
+  
+  --- Trap
+  sort TrapType .
+  op anticlinal : -> TrapType .
+  op faultDependent : -> TrapType .
+  op unknown : -> TrapType .
+  
+  --- global context
+  
+  op deopsitionalContact(_) : ObjList -> Msg [ctor]   .
+  op trapformation(_,_) : Oid TrapType -> Msg [ctor]   .
+  op accumulation(_) : Bool -> Msg [ctor]   .
+      
+
+  --- GEO Class declarations
+
+  op < Rock | Ocnt:_> : Nat -> RockClass [ctor]  .
+  op < Hydrocarbon | Ocnt:_> : Nat -> HydrocarbonClass [ctor]  .
+  op < Fault | Ocnt:_> : Nat -> FaultClass [ctor]  .
+  op < Pathways | Pathways:_, Ocnt:_> : ObjList Nat -> PathwayClass [ctor]  .
+
+  op <_: Rock | Type:_, Anticline:_, DeopsitedIn:_, Fage:_, Tage:_, Role:_, InContactWith:_, Hydrocarbon:_> : Oid RType Bool DepEnv Nat Nat Role ObjList Oid -> Object [ctor] .
+  op <_: Hydrocarbon | HType:_, KerogenType:_> : Oid String String -> Object [ctor]  .
+  op <_: Fault | FType:_, Filling:_, InRocks:_> : Oid FType FType ObjList -> Object [ctor]  .
+  op <_: Pathways | PType:_> : Oid Ptype -> Object [ctor]  .
+  
+
+  --- GEO Events
+
+  vars P P' : Cid .
+  vars N N' N'': Nat .
+  vars L L' L'' : ObjList .
+  vars F F' F'' T T' T'' : Nat .
+  vars C C' : Cid .
+  vars O O' O'' O''' : Oid .
+  vars R1 R2 R3 : Oid . ---(Rock objects)
+  vars F1 F2 : Oid . ---(Fault objects)
+  vars P1 P2 : Oid . ---(Pathway objects)
+  vars PL PL' OL OL' OL'' OL''' : ObjList . ---(Pathway list and Object list)
+  vars RT RT' RT'' : RType . ---(RockType)
+  vars FT FT' : FType . ---(FaultType)
+  vars PT PT' : Ptype . ---(PathwayType)
+  vars HC HC' : Oid . ---(hydrocarbon objects)
+  vars KT HT : String . ---(kerogen type: "1" or "2" or "3", hydrocarbon type: "oil", "oil&gas", "gas")
+  vars ENV ENV' : DepEnv .
+  vars TT : TrapType .
+  vars B B' : Bool .
+  vars ORT ORT' : Orientation .
+  vars FI FI' : FType .
+  
+
+  
+
+  crl [pathway-formation-in-contact] :
+    < Pathways | Pathways: PL , Ocnt: N > 
+    < R1 : Rock  | Type: RT, Anticline: B, DeopsitedIn: ENV,  Fage: F, Tage: T, Role: sourceRock, InContactWith: OL, Hydrocarbon: HC >
+    < R2 : Rock  | Type: RT', Anticline: B', DeopsitedIn: ENV, Fage: F', Tage: T', Role: reservoirRock, InContactWith: OL', Hydrocarbon: HC'  >
+    deopsitionalContact(L)
+    =>
+    deopsitionalContact(L)
+    < Pathways | Pathways: (R1,R2) :: PL, Ocnt: (s N) >
+    < R1 : Rock  | Type: RT,  Anticline: B, DeopsitedIn: ENV, Fage: F, Tage: T, Role: sourceRock, InContactWith: OL, Hydrocarbon: HC  >
+    < R2 : Rock  | Type: RT',  Anticline: B', DeopsitedIn: ENV, Fage: F', Tage: T', Role: reservoirRock, InContactWith: OL', Hydrocarbon: HC' > 
+    < N : Pathways | PType: incontact(R1, R2)  >
+    if not (occurs((R1,R2),PL)) and occurs((R1,R2),L) 
+    [ print "pathway-formation-in-contact" ] .
+
+  crl [pathway-formation-through-fault] :
+    < Pathways | Pathways: PL , Ocnt: N > 
+    < F1 : Fault | FType: FT, Filling: FI, InRocks: OL'' >
+    < R1 : Rock  | Type: RT,  Anticline: B, DeopsitedIn: ENV, Fage: F, Tage: T, Role: sourceRock, InContactWith: OL, Hydrocarbon: HC  >
+    < R2 : Rock  | Type: RT',  Anticline: B', DeopsitedIn: ENV, Fage: F', Tage: T', Role: reservoirRock, InContactWith: OL', Hydrocarbon: HC'  >
+    =>
+    < Pathways | Pathways: F1 :: PL, Ocnt: (s N) >
+    < F1 : Fault | FType: FT, Filling: FI, InRocks: OL'' >
+    < R1 : Rock  | Type: RT,  Anticline: B, DeopsitedIn: ENV, Fage: F, Tage: T, Role: sourceRock, InContactWith: OL, Hydrocarbon: HC  >
+    < R2 : Rock  | Type: RT',  Anticline: B', DeopsitedIn: ENV, Fage: F', Tage: T', Role: reservoirRock, InContactWith: OL', Hydrocarbon: HC'  >
+    < N  : Pathways | PType: fault(F1, R1, R2)  >
+    if not occurs(F1,PL) and (occurs(R1,OL'') and occurs(R2,OL''))
+    [ print "pathway-formation-through-fault" ] .
+
+
+  crl [trapformation-anticlinal-trap] :
+    trapformation(null, unknown)
+    < R1 : Rock  | Type: RT, Anticline: true, DeopsitedIn: ENV, Fage: F, Tage: T, Role: reservoirRock, InContactWith: OL, Hydrocarbon: HC  >
+    < R2 : Rock  | Type: RT', Anticline: true, DeopsitedIn: ENV,  Fage: F', Tage: T', Role: capRock, InContactWith: OL', Hydrocarbon: null  >
+    => 
+    < R1 : Rock  | Type: RT, Anticline: true, DeopsitedIn: ENV, Fage: F, Tage: T, Role: reservoirRock, InContactWith: OL, Hydrocarbon: HC  >
+    < R2 : Rock  | Type: RT', Anticline: true, DeopsitedIn: ENV, Fage: F', Tage: T', Role: capRock, InContactWith: OL', Hydrocarbon: null >
+    trapformation(R1, anticlinal)
+    if (occurs(R1, OL') or occurs(R2, OL)) 
+    [ print "trapformation-anticlinal-capRock" ] .
+
+   crl [trapformation-sealing-fault-dependent-trap] :
+     trapformation(null, unknown)
+     < R1 : Rock  | Type: RT, Anticline: false, DeopsitedIn: ENV, Fage: F, Tage: T, Role: reservoirRock, InContactWith: OL, Hydrocarbon: HC  >
+     < R2 : Rock  | Type: RT', Anticline: false, DeopsitedIn: ENV,  Fage: F', Tage: T', Role: capRock, InContactWith: OL', Hydrocarbon: null  >
+     < F1 : Fault | FType: FT, Filling: sealing, InRocks: OL'' >
+      => 
+    < R1 : Rock  | Type: RT, Anticline: false, DeopsitedIn: ENV, Fage: F, Tage: T, Role: reservoirRock, InContactWith: OL, Hydrocarbon: HC  >
+    < R2 : Rock  | Type: RT', Anticline: false, DeopsitedIn: ENV, Fage: F', Tage: T', Role: capRock, InContactWith: OL', Hydrocarbon: null >
+    < F1 : Fault | FType: FT, Filling: sealing, InRocks: OL'' >
+    trapformation(R1, faultDependent)
+    if (occurs(R1, OL') or occurs(R2, OL)) and occurs((R1,dippingAway), OL'') 
+    [ print "trapformation-Sealing-fault-dependent-trap" ] .     
+
+
+   crl [trapformation-nonSealing-fault-dependent-trap] :
+    trapformation(null, unknown)
+    < R1 : Rock  | Type: RT, Anticline: false, DeopsitedIn: ENV, Fage: F, Tage: T, Role: reservoirRock, InContactWith: OL, Hydrocarbon: HC  >
+    < R2 : Rock  | Type: RT', Anticline: false, DeopsitedIn: ENV,  Fage: F', Tage: T', Role: capRock, InContactWith: OL', Hydrocarbon: null  >
+    < R3 : Rock  | Type: RT'', Anticline: false, DeopsitedIn: ENV,  Fage: F'', Tage: T'', Role: sealRock, InContactWith: OL'', Hydrocarbon: null  >
+    < F1 : Fault | FType: FT, Filling: non-sealing, InRocks: OL''' >
+      => 
+    < R1 : Rock  | Type: RT, Anticline: false, DeopsitedIn: ENV, Fage: F, Tage: T, Role: reservoirRock, InContactWith: OL, Hydrocarbon: HC  >
+    < R2 : Rock  | Type: RT', Anticline: false, DeopsitedIn: ENV, Fage: F', Tage: T', Role: capRock, InContactWith: OL', Hydrocarbon: null >
+    < R3 : Rock  | Type: RT'', Anticline: false, DeopsitedIn: ENV,  Fage: F'', Tage: T'', Role: sealRock, InContactWith: OL'', Hydrocarbon: null  >
+    < F1 : Fault | FType: FT, Filling: non-sealing, InRocks: OL''' >
+    trapformation(R1, faultDependent)
+    if (occurs(R1, OL') or occurs(R2, OL)) and (occurs(R3, OL) or occurs(R1, OL'')) and
+    occurs((R1,dippingAway), OL''') and occurs(R3, OL''') 
+    [ print "trapformation-nonSealing-fault-dependent-trap" ] .  
+
+
+
+  crl [migration-and-accumulation-through-rocks-in-contact] : ---(need to check the time for migration)
+    trapformation(R2, TT)
+    accumulation(false)
+    < R1 : Rock  | Type: RT, Anticline: B, DeopsitedIn: ENV, Fage: F, Tage: T, Role: sourceRock, InContactWith: OL, Hydrocarbon: HC  >
+    < R2 : Rock  | Type: RT', Anticline: B', DeopsitedIn: ENV, Fage: F', Tage: T', Role: reservoirRock, InContactWith: OL', Hydrocarbon: null  >
+    < N  : Pathways | PType: incontact(R1, R2)  >
+    => 
+    < R1 : Rock  | Type: RT, Anticline: B, DeopsitedIn: ENV, Fage: F, Tage: T, Role: sourceRock, InContactWith: OL, Hydrocarbon: null  >
+    < R2 : Rock  | Type: RT', Anticline: B', DeopsitedIn: ENV, Fage: F', Tage: T', Role: reservoirRock, InContactWith: OL', Hydrocarbon: HC  >
+    < N  : Pathways | PType: incontact(R1, R2)  >
+    trapformation(R2, TT)
+    accumulation(true)
+    if HC =/= null and TT =/= unknown
+    [ print "migration-and-accumulation-through-rocks-in-contact" ] .
+
+
+  crl [migration-and-accumulation-through-fault] :
+    trapformation(R2, TT)
+    accumulation(false)
+    < R1 : Rock  | Type: RT, Anticline: B, DeopsitedIn: ENV, Fage: F, Tage: T, Role: sourceRock, InContactWith: OL, Hydrocarbon: HC  >
+    < R2 : Rock  | Type: RT', Anticline: B', DeopsitedIn: ENV, Fage: F', Tage: T', Role: reservoirRock, InContactWith: OL', Hydrocarbon: null  >
+    < N  : Pathways | PType: fault(F1, R1, R2)  >
+    => 
+    < R1 : Rock  | Type: RT, Anticline: B, DeopsitedIn: ENV, Fage: F, Tage: T, Role: sourceRock, InContactWith: OL, Hydrocarbon: null  >
+    < R2 : Rock  | Type: RT', Anticline: B', DeopsitedIn: ENV, Fage: F', Tage: T', Role: reservoirRock, InContactWith: OL', Hydrocarbon: HC  >
+    < N  : Pathways | PType: fault(F1, R1, R2)  >
+    trapformation(R2, TT)
+    accumulation(true)
+    if HC =/= null and TT =/= unknown
+    [ print "migration-and-accumulation-through-fault" ] .
+
+
+
+
+endm
+
+

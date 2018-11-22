@@ -1,0 +1,40 @@
+mod GEO-FUNCS is
+  protecting CONFIGURATION .
+
+  --- list constructor of geo objects
+  sort ObjList ObjPair .
+  subsort ObjPair Oid < ObjList .
+  op nil : -> ObjList [ctor] .
+  op _::_ : ObjList ObjList  -> ObjList [ctor] .
+  op _,_ : Oid Oid -> ObjPair [ctor]  . 
+
+  vars O O' O'' O''' : Oid .
+  vars L : ObjList .
+  vars C C' Conf : Configuration .
+  
+
+  op occurs : ObjPair ObjList -> Bool .
+  eq occurs((O,O'), nil) = false .
+  eq occurs((O,O'), (O'',O''') :: L) = if (O == O'' and O' == O''') or  (O == O''' and O' == O'') then true else occurs((O,O'), L) fi .
+
+  op occurs : Oid ObjPair -> Bool .
+  eq occurs(O, nil) = false .
+  eq occurs(O, (O',O'') :: L) = if (O == O') then true else occurs(O, L) fi .
+
+  
+
+ op occurs : Oid ObjList -> Bool .
+  eq occurs(O, nil) = false .
+  eq occurs(O, O' :: L) = if O == O' then true else occurs(O, L) fi .
+
+  *** Useful for accessing the whole configuration.  
+  sort State .
+  
+  op {_} : Configuration -> State [ctor] .
+  op contains : Configuration State -> Bool .
+  eq contains(C, {none}) = false .
+  eq contains(C, {C' Conf}) = if C == C' then true else contains(C, {Conf}) fi .
+  
+  
+
+endm
